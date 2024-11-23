@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Apostas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+        .stats {
+            margin-top: 20px;
+        }
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .pendente {
+            color: orange;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gestão de Apostas</h1>
+    <form id="apostaForm">
+        <label for="odd">Odd:</label>
+        <input type="number" step="0.01" id="odd" name="odd" required>
+        <label for="valor">Valor Apostado:</label>
+        <input type="number" step="0.01" id="valor" name="valor" required>
+        <label for="resultado">Resultado:</label>
+        <select id="resultado" name="resultado">
+            <option value="ganhou">Ganhou</option>
+            <option value="perdeu">Perdeu</option>
+            <option value="pendente">Pendente</option>
+        </select>
+        <button type="submit">Adicionar Aposta</button>
+    </form>
+
+    <table id="historico">
+        <thead>
+            <tr>
+                <th>Odd</th>
+                <th>Valor Apostado</th>
+                <th>Resultado</th>
+                <th>Lucro/Perda</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <div class="stats">
+        <h2>Estatísticas</h2>
+        <p><strong>Total Ganho:</strong> <span id="totalGanho">0</span></p>
+        <p><strong>Total Perdido:</strong> <span id="totalPerdido">0</span></p>
+        <p><strong>Lucro Líquido:</strong> <span id="lucroLiquido">0</span></p>
+    </div>
+
+    <script>
+        let historico = JSON.parse(localStorage.getItem('historico')) || [];
+
+        const form = document.getElementById('apostaForm');
+        const historicoTable = document.getElementById('historico').querySelector('tbody');
+        const totalGanhoEl = document.getElementById('totalGanho');
+        const totalPerdidoEl = document.getElementById('totalPerdido');
+        const lucroLiquidoEl = document.getElementById('lucroLiquido');
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const odd = parseFloat(document.getElementById('odd').value);
+            const valor = parseFloat(document.getElementById('valor').value);
+            const resultado = document.getElementById('resultado').value;
+
+            const lucro = resultado === 'ganhou' ? (odd * valor - valor) : resultado === 'perdeu' ? -valor : 0;
+
+            historico.push({ odd, valor, resultado, lucro });
+            salvarHistorico();
+            atualizarHistorico();
+            atualizarEstatisticas();
+        });
+
+        function salvarHistorico() {
+            localStorage.setItem('historico', JSON.stringify(historico));
+        }
+
+        function atualizarHistorico() {
+            historicoTable.innerHTML = '';
+            historico.forEach((aposta, index) => {
+                const lucroPotencial = (aposta.odd * aposta.valor - aposta.valor).toFixed(2);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${aposta.odd.toFixed(2)}</td>
+                    <td>${aposta.valor.toFixed(2)}</td>
+                    <td class="${aposta.resultado === 'pendente' ? 'pendente' : ''}">${aposta.resultado}</td>
+                    <td>${aposta.resultado === 'pendente' ? `Possível: ${lucroPotencial}` : aposta.lucro.toFixed(2)}</td>
+                    <td>
+                        <button onclick="editarAposta(${index})">Editar</button>
+                        <button onclick="eliminarAposta(${index})">Eliminar</button>
+                    </td>
+                `;
+                historicoTable.appendChild(row);
+            });
+        }
+
+        function atualizarEstatisticas() {
+            const totalGanho = historico
+                .filter(a => a.resultado === 'ganhou')
+                .reduce((sum, a) => sum + a.lucro, 0);
+            const totalPerdido = historico
+                .filter(a => a.resultado === 'perdeu')
+                .reduce((sum, a) => sum - a.lucro, 0);
+            const lucroLiquido = totalGanho - totalPerdido;
+
+            totalGanhoEl.textContent = totalGanho.toFixed(2);
+            totalPerdidoEl.textContent = totalPerdido.toFixed(2);
+            lucroLiquidoEl.textContent = lucroLiquido.toFixed(2);
+        }
+
+        function editarAposta(index) {
+            const aposta = historico[index];
+            document.getElementById('odd').value = aposta.odd;
+            document.getElementById('valor').value = aposta.valor;
+            document.getElementById('resultado').value = aposta.resultado;
+
+            eliminarAposta(index); // Remove temporariamente a aposta para ser re-adicionada.
+        }
+
+        function eliminarAposta(index) {
+            historico.splice(index, 1);
+            salvarHistorico();
+            atualizarHistorico();
+            atualizarEstatisticas();
+        }
+
+        // Inicialização
+        atualizarHistorico();
+        atualizarEstatisticas();
+    </script>
+</body>
+</html>
